@@ -30,6 +30,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
@@ -194,10 +195,11 @@ public class Refresher {
   private static boolean writeAccessTokenToFile(String accessToken) {
     try {
       Path filePath = Path.of(prometheusConfig.getTokenFile());
-      if (!Files.exists(filePath)) {
-        // If the file does not exist, create the file
-        Files.createFile(filePath);
-        LOG.info("create token file");
+      String osName = System.getProperty("os.name").toLowerCase();
+      if (osName.contains("win")) {
+          writeAccessTokenToFileForWindows(accessToken);
+      } else if (osName.contains("nix") || osName.contains("nux")) {
+        writeAccessTokenToFileForLinux(accessToken);
       }
       // Clear the file content and write accessToken
       Files.write(filePath, (accessToken).getBytes(), StandardOpenOption.TRUNCATE_EXISTING);
@@ -206,6 +208,28 @@ public class Refresher {
       e.printStackTrace();
     }
     return false;
+  }
+
+  private static void writeAccessTokenToFileForLinux(String accessToken) throws IOException {
+
+    Path filePath = Path.of(prometheusConfig.getTokenFile());
+    // If the file does not exist, create the file and set read/write permissions for all users
+    if (!Files.exists(filePath)) {
+      Files.createFile(filePath);
+      Files.setPosixFilePermissions(filePath, PosixFilePermissions.fromString("rw-rw-rw-"));
+      LOG.info("create token file");
+    }
+
+  }
+
+  private static void writeAccessTokenToFileForWindows(String accessToken) throws IOException {
+
+    Path filePath = Path.of(prometheusConfig.getTokenFile());
+    if (!Files.exists(filePath)) {
+      // If the file does not exist, create the file
+      Files.createFile(filePath);
+      LOG.info("create token file");
+    }
   }
 
 
